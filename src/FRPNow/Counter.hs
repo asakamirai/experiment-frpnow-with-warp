@@ -104,15 +104,6 @@ runNow now = do
         M.void . FRP.sync $ mv `MV.putMVar` emitEv
         now inputStream
     MV.takeMVar mv
-{-
-    chan <- Chan.newChan
-    AS.async . M.void . M.forever $ do
-        thid <- CC.myThreadId
-        print thid
-        cmd <- Chan.readChan chan
-        emitEv cmd
-    return $ Chan.writeChan chan
----}
 
 runCounter :: IO (InputIF Command)
 runCounter = runNow setupCounter
