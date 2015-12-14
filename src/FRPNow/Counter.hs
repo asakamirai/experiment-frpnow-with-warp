@@ -88,6 +88,7 @@ setupCounter inputStream = do
                 putStrLn $ "respond to GetCount : " ++ show count
                 M.forM_ inIFs ($ count)
         -- | １秒ごとにイベント（内容はIntの１）を発行するEvStreamを生成する。
+        --   終了をサポートしていないので、放置するとリークする。今は気にしない。
         genSecStream :: Now (EvStream Int)
         genSecStream = do
             (evs, emitEv) <- FRP.callbackStream
