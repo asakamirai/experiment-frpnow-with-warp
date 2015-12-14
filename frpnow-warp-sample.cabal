@@ -1,0 +1,51 @@
+name:                frpnow-warp-sample
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            http://github.com/githubuser/frpnow-sample#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2010 Author Here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  ghc-options:         -Wall -O2
+  exposed-modules:     FRPNow.Counter
+  build-depends:       base >= 4.7 && < 5
+                     , frpnow
+                     , async
+                     , stm
+                     , time
+  default-language:    Haskell2010
+
+executable frpnow-warp-sample
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -Wall -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , frpnow-warp-sample
+                     , wai
+                     , warp
+                     , http-types
+                     , bytestring
+                     , text
+  default-language:    Haskell2010
+
+test-suite frpnow-sample-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , frpnow-sample
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/frpnow-sample
