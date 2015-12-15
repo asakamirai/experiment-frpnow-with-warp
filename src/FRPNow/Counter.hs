@@ -35,9 +35,9 @@ instance Show Command where
     show (GetCount _) = "GetCount"
     show Shutdown     = "Shutdown"
 
-getCountAction :: Command -> Maybe (InputIF Int)
-getCountAction (GetCount inIF) = Just inIF
-getCountAction _               = Nothing
+getGetCount :: Command -> Maybe (InputIF Int)
+getGetCount (GetCount inIF) = Just inIF
+getGetCount _               = Nothing
 
 getCountState :: Command -> Maybe Bool
 getCountState StartCount = Just True
@@ -57,37 +57,37 @@ setupCounter :: EvStream Command -> Now (Event ())
 setupCounter inputStream = do
     -- inputStreamを４つのEvStreamに分ける
     -- StartCount/StopCountはTrue/Falseに変換してひとつのEvStreamに。
-    let addCountStream   = getAddCount    `FRP.filterMapEs` inputStream
-        countStateStream = getCountState  `FRP.filterMapEs` inputStream
-        getCountStream   = getCountAction `FRP.filterMapEs` inputStream
-        shutdownStream   = getShutdown    `FRP.filterMapEs` inputStream
-    -- 秒カウントのEvStreamを生成する
+    let addCountStream   = getAddCount   `FRP.filterMapEs` inputStream
+        countStateStream = getCountState `FRP.filterMapEs` inputStream
+        getCountStream   = getGetCount   `FRP.filterMapEs` inputStream
+        shutdownStream   = getShutdown   `FRP.filterMapEs` inputStream
+    -- 秒カウントのEvStreamを生成
     secStream <- genSecStream
-    -- countStateStreamの最後のイベントの値を表すBehaviorを作成。
-    countState <- FRP.sampleNow $ False `FRP.fromChanges` countStateStream
-    -- countStateがTrueの間だけ、秒カウントするEvStream。
-    let secCountStream   = secStream `FRP.during` countState
-    -- addCountStreamとsecCountStreamのイベントをマージしたEvStream
+    -- countStateStreamの最後のイベントの値を表すBehaviorを作成
+    countingState <- FRP.sampleNow $ False `FRP.fromChanges` countStateStream
+    -- countStateがTrueの間だけ、秒カウントするEvStreamを作成
+    let secCountStream   = secStream `FRP.during` countingState
+    -- addCountStreamとsecCountStreamのイベントをマージしたEvStreamを作成
     let countUpStream    = secCountStream `FRP.merge` addCountStream
-    -- countUpStreamの内容を合算した状態を表すBehaviorを作成。
-    counter <- FRP.sampleNow $ FRP.foldEs (+) 0 countUpStream
-    -- GetCountイベントに、そのときのcounterの値を応答する
-    respondToGetCount counter `FRP.callStream` getCountStream
+    -- countUpStreamの内容を合算した状態を表すBehaviorを作成
+    countState <- FRP.sampleNow $ FRP.foldEs (+) 0 countUpStream
+    -- GetCountイベントに、そのときのcounterの値を応答させる
+    respondToGetCount countState `FRP.callStream` getCountStream
     -- counterの値が変化するたびに、その値をコンソールに出力する
-    (putStrLn . ("count " ++) . show) `FRP.callIOStream` FRP.toChanges counter
-    -- 最初に来たShutdownイベントを取り出して返す。
-    -- このイベントが届くとFRPの実行が終了する。
+    (putStrLn . ("count " ++) . show) `FRP.callIOStream` FRP.toChanges countState
+    -- 最初に来たShutdownイベントを取り出して返す
+    -- このイベントが届くとFRPの実行が終了する
     FRP.sampleNow $ FRP.next shutdownStream
     where
-        -- | GetCountコマンドに応答する。
-        --   「同時」に届いたGetCountイベントはリストになって渡される。
+        -- | GetCountコマンドに応答する
         respondToGetCount :: Behavior Int -> [InputIF Int] -> Now ()
-        respondToGetCount counter inIFs = do
+        respondToGetCount countState inIFs = do
             -- counterの値を採取する。
-            count <- FRP.sampleNow counter
-            -- コンソールに表示してGetCountイベントに応答する。
+            count <- FRP.sampleNow countState
+            -- コンソールに表示してGetCountイベントに応答
             FRP.sync $ do
                 putStrLn $ "respond to GetCount : " ++ show count
+                -- 「同時」に届いたGetCountイベントはリストになって渡されるので全てに同じ値を渡す
                 M.forM_ inIFs ($ count)
         -- | １秒ごとにイベント（内容はIntの１）を発行するEvStreamを生成する。
         --   終了をサポートしていないので、放置するとリークする。今は気にしない。
