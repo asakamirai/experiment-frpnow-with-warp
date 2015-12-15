@@ -12,7 +12,9 @@ module FRPNow.Counter
 
 import qualified Control.Concurrent        as CC
 import qualified Control.Concurrent.Async  as AS
+import qualified Control.Concurrent.Chan   as Chan
 import qualified Control.Concurrent.MVar   as MV
+import qualified Control.Exception         as E
 import qualified Control.FRPNow            as FRP
 import           Control.FRPNow            (Behavior, Event, EvStream, Now)
 import qualified Control.Monad             as M
@@ -97,14 +99,29 @@ setupCounter inputStream = do
                 CC.threadDelay 1000000
             return evs
 
+-- | 入力EvStreamを受け取るNowモナドを実行する。
+--   返り値は、入力EvStreamへの入力アクション。
 runNow :: (EvStream a -> Now (Event x)) -> IO (InputIF a)
 runNow now = do
-    mv <- MV.newEmptyMVar
+    -- frpnow側が多数のスレッドからの同時イベント発行に対応していない
+    -- ように見えるので、チャネルを設けてタイミング制御を行っている。
+    -- が、これで正しく動く保証はない。
+    mvEmitEv <- MV.newEmptyMVar
+    mvWait   <- MV.newEmptyMVar
     M.void . AS.async . FRP.runNowMaster $ do
         (inputStream, emitEv) <- FRP.callbackStream
-        M.void . FRP.sync $ mv `MV.putMVar` emitEv
+        M.void . FRP.sync $ mvEmitEv `MV.putMVar` emitEv
+        MV.putMVar mvWait `FRP.callIOStream` inputStream
         now inputStream
-    MV.takeMVar mv
+    emitEv <- MV.takeMVar mvEmitEv
+    chan <- Chan.newChan
+    M.void . AS.async . E.handle handleException . M.forever $ do
+        a <- Chan.readChan chan
+        emitEv a
+        M.void $ MV.takeMVar mvWait
+    return $ Chan.writeChan chan
+    where
+        handleException (E.SomeException _err) = return ()
 
 runCounter :: IO (InputIF Command)
 runCounter = runNow setupCounter
