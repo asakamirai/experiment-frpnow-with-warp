@@ -35,9 +35,9 @@ instance Show Command where
     show (GetCount _) = "GetCount"
     show Shutdown     = "Shutdown"
 
-getCount :: Command -> Maybe (InputIF Int)
-getCount (GetCount inIF) = Just inIF
-getCount _               = Nothing
+getCountAction :: Command -> Maybe (InputIF Int)
+getCountAction (GetCount inIF) = Just inIF
+getCountAction _               = Nothing
 
 getCountState :: Command -> Maybe Bool
 getCountState StartCount = Just True
@@ -57,10 +57,10 @@ setupCounter :: EvStream Command -> Now (Event ())
 setupCounter inputStream = do
     -- inputStreamを４つのEvStreamに分ける
     -- StartCount/StopCountはTrue/Falseに変換してひとつのEvStreamに。
-    let addCountStream   = getAddCount   `FRP.filterMapEs` inputStream
-        countStateStream = getCountState `FRP.filterMapEs` inputStream
-        getCountStream   = getCount      `FRP.filterMapEs` inputStream
-        shutdownStream   = getShutdown   `FRP.filterMapEs` inputStream
+    let addCountStream   = getAddCount    `FRP.filterMapEs` inputStream
+        countStateStream = getCountState  `FRP.filterMapEs` inputStream
+        getCountStream   = getCountAction `FRP.filterMapEs` inputStream
+        shutdownStream   = getShutdown    `FRP.filterMapEs` inputStream
     -- 秒カウントのEvStreamを生成する
     secStream <- genSecStream
     -- countStateStreamの最後のイベントの値を表すBehaviorを作成。
